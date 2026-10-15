@@ -1,0 +1,3186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Self-Healing Dynamic API Bridge | Command Center</title>
+    <meta name="description" content="Autonomous API anomaly detection, schema repair, pipeline failover, and dynamic contract healing engine.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* ========== CSS RESET & DESIGN TOKENS ========== */
+        :root {
+            --bg-deep: #000000;
+            --bg-surface: #080808;
+            --bg-elevated: #0e0e0e;
+            --card-bg: rgba(14, 14, 14, 0.85);
+            --card-bg-solid: #111111;
+            --card-border: rgba(255, 255, 255, 0.06);
+            --card-border-hover: rgba(255, 255, 255, 0.12);
+            --accent-primary: #a0a0a0;
+            --accent-cyan: #5eead4;
+            --accent-green: #4ade80;
+            --accent-amber: #fbbf24;
+            --accent-red: #f87171;
+            --accent-blue: #60a5fa;
+            --accent-purple: #a78bfa;
+            --accent-silver: #c0c0c0;
+            --text-primary: #e4e4e7;
+            --text-secondary: #71717a;
+            --text-muted: #3f3f46;
+            --font-ui: 'Inter', -apple-system, sans-serif;
+            --font-mono: 'JetBrains Mono', 'Cascadia Code', monospace;
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 14px;
+            --radius-xl: 20px;
+            --transition-fast: 0.15s ease;
+            --transition-smooth: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg-deep);
+            color: var(--text-primary);
+            font-family: var(--font-ui);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ========== SUBTLE BACKGROUND ========== */
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            background-size: 80px 80px;
+            background-image:
+                linear-gradient(to right, rgba(255,255,255,0.015) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255,255,255,0.015) 1px, transparent 1px);
+            mask-image: radial-gradient(ellipse 70% 50% at 50% 30%, black 30%, transparent 100%);
+        }
+
+        .bg-glow {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(255,255,255,0.02) 0%, transparent 70%);
+        }
+
+        /* ========== LAYOUT ========== */
+        .app-container {
+            position: relative;
+            z-index: 1;
+            max-width: 1480px;
+            margin: 0 auto;
+            padding: 16px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        /* ========== GLASS CARDS ========== */
+        .glass {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-lg);
+            transition: border-color var(--transition-smooth);
+        }
+
+        .glass:hover {
+            border-color: var(--card-border-hover);
+        }
+
+        /* ========== HEADER ========== */
+        .header {
+            padding: 14px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            background: rgba(10,10,10,0.9);
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .brand-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: var(--radius-md);
+            background: linear-gradient(135deg, #1a1a1a, #2a2a2a);
+            border: 1px solid rgba(255,255,255,0.08);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            position: relative;
+        }
+
+        .brand-icon::after {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            border-radius: calc(var(--radius-md) + 2px);
+            border: 1px solid rgba(255,255,255,0.06);
+            animation: subtlePulse 4s ease-in-out infinite;
+        }
+
+        @keyframes subtlePulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.8; }
+        }
+
+        .brand-text h1 {
+            font-size: 1.15rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: #ffffff;
+            line-height: 1.2;
+        }
+
+        .brand-text p {
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+            font-weight: 400;
+            margin-top: 1px;
+            letter-spacing: 0.02em;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Server Clock */
+        .server-clock {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            border-radius: 100px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--card-border);
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .clock-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .clock-time {
+            color: var(--accent-silver);
+            font-weight: 600;
+        }
+
+        /* Access Server Button */
+        .access-server-btn {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.04);
+            color: var(--text-primary);
+            font-family: var(--font-ui);
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition-smooth);
+            text-decoration: none;
+            letter-spacing: 0.01em;
+        }
+
+        .access-server-btn:hover {
+            background: rgba(255,255,255,0.08);
+            border-color: rgba(255,255,255,0.18);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+        }
+
+        .access-server-btn .btn-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            box-shadow: 0 0 6px var(--accent-green);
+            animation: dotPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes dotPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .pres-btn {
+            padding: 7px 14px;
+            border-radius: var(--radius-sm);
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.03);
+            color: var(--text-secondary);
+            font-family: var(--font-ui);
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all var(--transition-smooth);
+        }
+
+        .pres-btn:hover {
+            background: rgba(255,255,255,0.06);
+            color: var(--text-primary);
+            border-color: rgba(255,255,255,0.15);
+        }
+
+        .live-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            border-radius: 100px;
+            background: rgba(74, 222, 128, 0.05);
+            border: 1px solid rgba(74, 222, 128, 0.15);
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            box-shadow: 0 0 8px var(--accent-green);
+            animation: dotPulse 1.5s ease-in-out infinite;
+        }
+
+        .live-indicator span {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--accent-green);
+            letter-spacing: 0.06em;
+        }
+
+        /* ========== PIPELINE VISUALIZATION ========== */
+        .pipeline-section {
+            padding: 20px 24px;
+            background: rgba(8,8,8,0.9);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .pipeline-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .pipeline-title {
+            font-size: 0.88rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .pipeline-title .icon { font-size: 1rem; }
+
+        .pipeline-status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 100px;
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        .pipe-badge-active {
+            background: rgba(74,222,128,0.08);
+            color: var(--accent-green);
+            border: 1px solid rgba(74,222,128,0.2);
+        }
+
+        .pipe-badge-failover {
+            background: rgba(248,113,113,0.08);
+            color: var(--accent-red);
+            border: 1px solid rgba(248,113,113,0.2);
+            animation: failoverPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes failoverPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(248,113,113,0.2); }
+            50% { box-shadow: 0 0 12px rgba(248,113,113,0.15); }
+        }
+
+        .pipe-badge-repairing {
+            background: rgba(251,191,36,0.08);
+            color: var(--accent-amber);
+            border: 1px solid rgba(251,191,36,0.2);
+        }
+
+        .pipeline-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .pipe-ctrl-btn {
+            padding: 6px 14px;
+            border-radius: var(--radius-sm);
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.03);
+            color: var(--text-secondary);
+            font-family: var(--font-ui);
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition-smooth);
+        }
+
+        .pipe-ctrl-btn:hover {
+            background: rgba(255,255,255,0.06);
+            color: var(--text-primary);
+        }
+
+        .pipe-ctrl-btn.danger:hover {
+            background: rgba(248,113,113,0.1);
+            color: var(--accent-red);
+            border-color: rgba(248,113,113,0.25);
+        }
+
+        /* Pipeline Canvas */
+        .pipeline-canvas {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .pipeline-row {
+            position: relative;
+        }
+
+        .pipeline-label {
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pipeline-label .pipe-id {
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .pipeline-nodes {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            position: relative;
+            padding: 8px 0;
+        }
+
+        .pipe-node {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .node-box {
+            width: 100%;
+            max-width: 110px;
+            padding: 10px 6px;
+            border-radius: var(--radius-sm);
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.06);
+            text-align: center;
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .node-box::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--accent-green);
+            opacity: 0.3;
+            transition: all 0.4s ease;
+        }
+
+        .node-box.node-active::before { background: var(--accent-green); opacity: 0.5; }
+        .node-box.node-standby::before { background: var(--text-muted); opacity: 0.2; }
+        .node-box.node-failed::before { background: var(--accent-red); opacity: 0.8; }
+        .node-box.node-blocked::before { background: var(--accent-amber); opacity: 0.5; }
+
+        .node-box.node-failed {
+            border-color: rgba(248,113,113,0.3);
+            background: rgba(248,113,113,0.05);
+            animation: nodeShake 0.5s ease;
+        }
+
+        .node-box.node-blocked {
+            border-color: rgba(251,191,36,0.2);
+            background: rgba(251,191,36,0.03);
+            opacity: 0.6;
+        }
+
+        .node-box.node-standby {
+            opacity: 0.35;
+        }
+
+        .node-box.node-active {
+            border-color: rgba(255,255,255,0.08);
+        }
+
+        @keyframes nodeShake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-3px); }
+            40% { transform: translateX(3px); }
+            60% { transform: translateX(-2px); }
+            80% { transform: translateX(2px); }
+        }
+
+        .node-name {
+            font-size: 0.6rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .node-load {
+            font-family: var(--font-mono);
+            font-size: 0.6rem;
+            color: var(--text-muted);
+        }
+
+        .node-status-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            margin: 0 auto;
+        }
+
+        .node-status-dot.dot-active { background: var(--accent-green); box-shadow: 0 0 4px var(--accent-green); }
+        .node-status-dot.dot-standby { background: var(--text-muted); }
+        .node-status-dot.dot-failed { background: var(--accent-red); box-shadow: 0 0 4px var(--accent-red); }
+        .node-status-dot.dot-blocked { background: var(--accent-amber); box-shadow: 0 0 4px var(--accent-amber); }
+
+        /* Connection lines between nodes */
+        .pipe-connector {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 2px;
+            z-index: 1;
+            overflow: hidden;
+        }
+
+        .pipe-connector-line {
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.04);
+            position: relative;
+        }
+
+        .pipe-connector-line::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -40%;
+            width: 40%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, var(--accent-green), transparent);
+            opacity: 0.4;
+            animation: dataFlow 2.5s linear infinite;
+        }
+
+        .pipe-connector-line.flow-stopped::after {
+            animation: none;
+            opacity: 0;
+        }
+
+        .pipe-connector-line.flow-error::after {
+            background: linear-gradient(90deg, transparent, var(--accent-red), transparent);
+        }
+
+        .pipe-connector-line.flow-failover::after {
+            background: linear-gradient(90deg, transparent, var(--accent-amber), transparent);
+        }
+
+        @keyframes dataFlow {
+            0% { left: -40%; }
+            100% { left: 100%; }
+        }
+
+        /* Repair progress bar */
+        .repair-bar {
+            margin-top: 8px;
+            display: none;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 14px;
+            background: rgba(251,191,36,0.04);
+            border: 1px solid rgba(251,191,36,0.12);
+            border-radius: var(--radius-sm);
+        }
+
+        .repair-bar.visible { display: flex; }
+
+        .repair-bar-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--accent-amber);
+            white-space: nowrap;
+        }
+
+        .repair-bar-track {
+            flex: 1;
+            height: 4px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .repair-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-amber), var(--accent-green));
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .repair-bar-pct {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--accent-amber);
+            font-weight: 600;
+            min-width: 40px;
+            text-align: right;
+        }
+
+        /* ========== AUTOPILOT STREAM BAR ========== */
+        .autopilot-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 18px;
+            gap: 14px;
+            background: rgba(10, 10, 10, 0.85);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-lg);
+            position: relative;
+            overflow: hidden;
+            flex-wrap: wrap;
+        }
+
+        .autopilot-bar::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 1px;
+            width: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+            animation: barScan 3s linear infinite;
+        }
+
+        @keyframes barScan {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .autopilot-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .autopilot-pulse-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 5px 12px;
+            border-radius: 100px;
+            background: rgba(74,222,128,0.06);
+            border: 1px solid rgba(74,222,128,0.2);
+            transition: all 0.3s ease;
+        }
+
+        .autopilot-pulse-badge.paused {
+            background: rgba(251,191,36,0.06);
+            border-color: rgba(251,191,36,0.2);
+        }
+
+        .autopilot-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            box-shadow: 0 0 6px var(--accent-green);
+        }
+
+        .autopilot-pulse-badge.paused .autopilot-dot {
+            background: var(--accent-amber);
+            box-shadow: 0 0 6px var(--accent-amber);
+        }
+
+        .autopilot-pulse-badge:not(.paused) .autopilot-dot {
+            animation: dotPulse 1.2s ease-in-out infinite;
+        }
+
+        .autopilot-label {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--accent-green);
+            letter-spacing: 0.06em;
+        }
+
+        .autopilot-pulse-badge.paused .autopilot-label {
+            color: var(--accent-amber);
+        }
+
+        .autopilot-endpoint {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255,255,255,0.03);
+            padding: 4px 10px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--card-border);
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+        }
+
+        .method-tag {
+            font-size: 0.62rem;
+            font-weight: 800;
+            padding: 1px 5px;
+            border-radius: 3px;
+            letter-spacing: 0.04em;
+        }
+
+        .method-post {
+            background: rgba(167,139,250,0.12);
+            color: var(--accent-purple);
+            border: 1px solid rgba(167,139,250,0.25);
+        }
+
+        .method-get {
+            background: rgba(96,165,250,0.12);
+            color: var(--accent-blue);
+            border: 1px solid rgba(96,165,250,0.25);
+        }
+
+        .endpoint-path { color: var(--text-secondary); }
+
+        .autopilot-center { display: flex; align-items: center; }
+
+        .scenario-pill {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 4px 12px;
+            border-radius: 100px;
+            background: rgba(255,255,255,0.04);
+            color: var(--text-secondary);
+            border: 1px solid var(--card-border);
+            white-space: nowrap;
+            transition: all 0.3s ease;
+        }
+
+        .scenario-pill.flash { animation: pillFlash 0.3s ease; }
+
+        @keyframes pillFlash {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .autopilot-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .speed-group {
+            display: flex;
+            background: rgba(255,255,255,0.02);
+            border-radius: var(--radius-sm);
+            padding: 2px;
+            border: 1px solid var(--card-border);
+        }
+
+        .speed-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.68rem;
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: var(--font-mono);
+        }
+
+        .speed-btn:hover { color: var(--text-secondary); }
+
+        .speed-btn.active {
+            background: rgba(255,255,255,0.08);
+            color: var(--text-primary);
+        }
+
+        .autopilot-toggle-btn {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 12px;
+            border-radius: var(--radius-sm);
+            font-size: 0.72rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.03);
+            color: var(--text-secondary);
+            transition: all 0.2s ease;
+        }
+
+        .autopilot-toggle-btn:hover {
+            background: rgba(255,255,255,0.06);
+            color: var(--text-primary);
+        }
+
+        /* ========== METRICS ROW ========== */
+        .metrics-strip {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+
+        .metric-tile {
+            padding: 16px 18px;
+            position: relative;
+            overflow: hidden;
+            background: rgba(10,10,10,0.85);
+        }
+
+        .metric-tile::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            border-radius: 2px 2px 0 0;
+        }
+
+        .metric-tile:nth-child(1)::before { background: linear-gradient(90deg, #3f3f46, #71717a); }
+        .metric-tile:nth-child(2)::before { background: linear-gradient(90deg, #166534, var(--accent-green)); }
+        .metric-tile:nth-child(3)::before { background: linear-gradient(90deg, #991b1b, var(--accent-red)); }
+        .metric-tile:nth-child(4)::before { background: linear-gradient(90deg, #1e3a5f, var(--accent-blue)); }
+
+        .metric-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .metric-number {
+            font-size: 1.9rem;
+            font-weight: 900;
+            line-height: 1;
+            font-variant-numeric: tabular-nums;
+            transition: all 0.4s ease;
+        }
+
+        .metric-number.count-up { animation: metricFlash 0.3s ease; }
+
+        @keyframes metricFlash {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .metric-sub {
+            font-size: 0.68rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* ========== MAIN WORKSPACE ========== */
+        .workspace {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 14px;
+        }
+
+        /* === CONTROL PANEL === */
+        .control-panel {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            background: rgba(10,10,10,0.85);
+        }
+
+        .panel-heading {
+            font-size: 0.85rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-heading .icon { font-size: 0.95rem; }
+
+        .panel-desc {
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            margin-top: 3px;
+        }
+
+        /* Chaos Buttons */
+        .chaos-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .chaos-btn {
+            position: relative;
+            padding: 12px 14px;
+            border-radius: var(--radius-sm);
+            border: 1px solid rgba(255,255,255,0.04);
+            background: rgba(255,255,255,0.01);
+            color: var(--text-secondary);
+            font-family: var(--font-ui);
+            font-size: 0.78rem;
+            font-weight: 500;
+            text-align: left;
+            cursor: pointer;
+            transition: all var(--transition-smooth);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .chaos-btn:hover {
+            background: rgba(255,255,255,0.03);
+            color: var(--text-primary);
+            transform: translateX(3px);
+            border-color: rgba(255,255,255,0.08);
+        }
+
+        .chaos-btn .btn-indicator {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            flex-shrink: 0;
+            transition: all var(--transition-smooth);
+        }
+
+        .chaos-btn .btn-label { flex: 1; }
+
+        .chaos-btn .btn-arrow {
+            font-size: 0.6rem;
+            opacity: 0;
+            transform: translateX(-6px);
+            transition: all var(--transition-smooth);
+            color: var(--text-muted);
+        }
+
+        .chaos-btn:hover .btn-arrow { opacity: 1; transform: translateX(0); }
+
+        /* Active chaos states */
+        .chaos-btn.state-normal.is-active {
+            background: rgba(74,222,128,0.04);
+            border-color: rgba(74,222,128,0.15);
+            color: var(--accent-green);
+        }
+        .chaos-btn.state-normal.is-active .btn-indicator {
+            background: var(--accent-green);
+            box-shadow: 0 0 6px var(--accent-green);
+        }
+
+        .chaos-btn.state-rename.is-active {
+            background: rgba(251,191,36,0.04);
+            border-color: rgba(251,191,36,0.15);
+            color: var(--accent-amber);
+        }
+        .chaos-btn.state-rename.is-active .btn-indicator {
+            background: var(--accent-amber);
+            box-shadow: 0 0 6px var(--accent-amber);
+        }
+
+        .chaos-btn.state-type.is-active {
+            background: rgba(167,139,250,0.04);
+            border-color: rgba(167,139,250,0.15);
+            color: var(--accent-purple);
+        }
+        .chaos-btn.state-type.is-active .btn-indicator {
+            background: var(--accent-purple);
+            box-shadow: 0 0 6px var(--accent-purple);
+        }
+
+        .chaos-btn.state-outage.is-active {
+            background: rgba(248,113,113,0.04);
+            border-color: rgba(248,113,113,0.15);
+            color: var(--accent-red);
+        }
+        .chaos-btn.state-outage.is-active .btn-indicator {
+            background: var(--accent-red);
+            box-shadow: 0 0 6px var(--accent-red);
+        }
+
+        /* Divider */
+        .divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--card-border), transparent);
+        }
+
+        /* Action Buttons */
+        .action-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .action-btn {
+            position: relative;
+            padding: 14px 16px;
+            border-radius: var(--radius-sm);
+            border: none;
+            font-family: var(--font-ui);
+            font-size: 0.82rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all var(--transition-smooth);
+            overflow: hidden;
+        }
+
+        .action-btn::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.05) 50%, transparent 70%);
+            transform: translateX(-100%);
+            transition: transform 0.6s ease;
+        }
+
+        .action-btn:hover::after { transform: translateX(100%); }
+
+        .btn-unsafe {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.06);
+            color: var(--text-secondary);
+        }
+
+        .btn-unsafe:hover {
+            background: rgba(248,113,113,0.06);
+            border-color: rgba(248,113,113,0.2);
+            color: var(--accent-red);
+        }
+
+        .btn-heal {
+            background: linear-gradient(135deg, #1a1a1a, #2a2a2a);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .btn-heal:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+            border-color: rgba(255,255,255,0.18);
+        }
+
+        .btn-heal:active { transform: translateY(-1px) scale(0.99); }
+
+        .btn-loading .btn-text { display: none; }
+        .btn-loading .btn-spinner { display: inline-block; }
+        .btn-spinner {
+            display: none;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* === RESULTS AREA === */
+        .results-area {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* Diagnosis Banner */
+        .diagnosis-banner {
+            padding: 14px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: rgba(10,10,10,0.85);
+        }
+
+        .diag-top-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .diag-strategy {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .status-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 12px;
+            border-radius: 100px;
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .tag-ready {
+            background: rgba(255,255,255,0.04);
+            color: var(--text-secondary);
+            border: 1px solid var(--card-border);
+        }
+
+        .tag-healed {
+            background: rgba(74,222,128,0.06);
+            color: var(--accent-green);
+            border: 1px solid rgba(74,222,128,0.2);
+        }
+
+        .tag-crashed {
+            background: rgba(248,113,113,0.06);
+            color: var(--accent-red);
+            border: 1px solid rgba(248,113,113,0.2);
+        }
+
+        .tag-pass {
+            background: rgba(96,165,250,0.06);
+            color: var(--accent-blue);
+            border: 1px solid rgba(96,165,250,0.2);
+        }
+
+        /* Repair List */
+        .repair-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .repair-list li {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            padding: 5px 10px;
+            border-radius: var(--radius-sm);
+            background: rgba(255,255,255,0.02);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .repair-icon { font-size: 0.8rem; flex-shrink: 0; }
+
+        /* Diff viewer */
+        .diff-grid {
+            display: grid;
+            grid-template-columns: 1fr 36px 1fr;
+            gap: 0;
+            align-items: stretch;
+        }
+
+        .code-panel {
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            background: #060606;
+            border: 1px solid var(--card-border);
+            display: flex;
+            flex-direction: column;
+            transition: border-color var(--transition-smooth);
+        }
+
+        .code-panel.panel-raw:hover { border-color: rgba(248,113,113,0.2); }
+        .code-panel.panel-healed:hover { border-color: rgba(74,222,128,0.2); }
+
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 14px;
+            background: rgba(255,255,255,0.01);
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .code-header-title {
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .code-header-title.title-raw { color: var(--accent-red); }
+        .code-header-title.title-healed { color: var(--accent-green); }
+
+        .code-status-pill {
+            font-size: 0.62rem;
+            font-weight: 600;
+            font-family: var(--font-mono);
+            padding: 2px 7px;
+            border-radius: 3px;
+            background: rgba(255,255,255,0.03);
+            color: var(--text-muted);
+        }
+
+        .code-body {
+            padding: 14px;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            line-height: 1.6;
+            color: var(--text-secondary);
+            white-space: pre-wrap;
+            flex: 1;
+            overflow-x: auto;
+            min-height: 160px;
+            transition: all var(--transition-smooth);
+        }
+
+        .code-body.flash-green { animation: flashGreen 0.5s ease; }
+        .code-body.flash-red { animation: flashRed 0.5s ease; }
+
+        @keyframes flashGreen {
+            0% { background: rgba(74,222,128,0.08); }
+            100% { background: transparent; }
+        }
+
+        @keyframes flashRed {
+            0% { background: rgba(248,113,113,0.08); }
+            100% { background: transparent; }
+        }
+
+        /* Arrow between panels */
+        .diff-arrow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            position: relative;
+        }
+
+        .diff-arrow::before {
+            content: '';
+            position: absolute;
+            top: 25%;
+            bottom: 25%;
+            width: 1px;
+            background: linear-gradient(180deg, transparent, var(--card-border), transparent);
+        }
+
+        .arrow-icon {
+            background: var(--bg-elevated);
+            border: 1px solid var(--card-border);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1;
+            font-size: 0.85rem;
+            transition: all var(--transition-smooth);
+        }
+
+        .arrow-icon.healing {
+            border-color: rgba(74,222,128,0.3);
+            color: var(--accent-green);
+        }
+
+        /* ========== AUDIT LOG ========== */
+        .audit-section {
+            padding: 18px 20px;
+            background: rgba(10,10,10,0.85);
+        }
+
+        .audit-heading {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .audit-heading h2 {
+            font-size: 0.85rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .log-count-badge {
+            font-size: 0.65rem;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 100px;
+            background: rgba(255,255,255,0.04);
+            color: var(--text-muted);
+            border: 1px solid var(--card-border);
+            font-family: var(--font-mono);
+        }
+
+        .audit-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .audit-table th {
+            text-align: left;
+            font-size: 0.62rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            padding: 6px 10px;
+            border-bottom: 1px solid var(--card-border);
+            font-weight: 600;
+        }
+
+        .audit-table td {
+            padding: 8px 10px;
+            font-size: 0.73rem;
+            border-bottom: 1px solid rgba(255,255,255,0.02);
+            vertical-align: middle;
+        }
+
+        .audit-table tr { transition: background var(--transition-fast); }
+        .audit-table tbody tr:hover { background: rgba(255,255,255,0.015); }
+
+        .audit-table tr.new-log { animation: logFadeIn 0.35s ease; }
+
+        @keyframes logFadeIn {
+            0% { background: rgba(255,255,255,0.04); }
+            100% { background: transparent; }
+        }
+
+        .log-time {
+            font-family: var(--font-mono);
+            font-size: 0.68rem;
+            color: var(--text-muted);
+        }
+
+        .log-type-tag {
+            display: inline-flex;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.62rem;
+            font-weight: 700;
+            font-family: var(--font-mono);
+        }
+
+        .log-type-tag.type-schema { background: rgba(96,165,250,0.08); color: var(--accent-blue); }
+        .log-type-tag.type-failover { background: rgba(251,191,36,0.08); color: var(--accent-amber); }
+        .log-type-tag.type-chaos { background: rgba(167,139,250,0.08); color: var(--accent-purple); }
+        .log-type-tag.type-failed { background: rgba(248,113,113,0.08); color: var(--accent-red); }
+        .log-type-tag.type-system { background: rgba(255,255,255,0.04); color: var(--text-secondary); }
+        .log-type-tag.type-pipeline { background: rgba(94,234,212,0.08); color: var(--accent-cyan); }
+
+        .status-dot {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-weight: 600;
+            font-size: 0.72rem;
+        }
+
+        .status-dot::before {
+            content: '';
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+        }
+
+        .status-dot.dot-healed { color: var(--accent-green); }
+        .status-dot.dot-healed::before { background: var(--accent-green); }
+
+        .status-dot.dot-failed { color: var(--accent-red); }
+        .status-dot.dot-failed::before { background: var(--accent-red); }
+
+        .status-dot.dot-system { color: var(--text-secondary); }
+        .status-dot.dot-system::before { background: var(--text-secondary); }
+
+        .status-dot.dot-failover { color: var(--accent-amber); }
+        .status-dot.dot-failover::before { background: var(--accent-amber); }
+
+        .empty-state {
+            text-align: center;
+            padding: 28px;
+            color: var(--text-muted);
+            font-size: 0.78rem;
+        }
+
+        .empty-state .empty-icon {
+            font-size: 2rem;
+            margin-bottom: 8px;
+            opacity: 0.3;
+        }
+
+        /* ========== SERVER ACCESS MODAL ========== */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 20000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(8px);
+        }
+
+        .modal-overlay.active { display: flex; }
+
+        .modal-content {
+            width: min(640px, 92vw);
+            max-height: 85vh;
+            overflow-y: auto;
+            background: #0a0a0a;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: var(--radius-xl);
+            padding: 32px;
+            position: relative;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: var(--text-secondary);
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+
+        .modal-close:hover {
+            background: rgba(248,113,113,0.1);
+            color: var(--accent-red);
+            border-color: rgba(248,113,113,0.2);
+        }
+
+        .modal-title {
+            font-size: 1.2rem;
+            font-weight: 800;
+            margin-bottom: 6px;
+        }
+
+        .modal-subtitle {
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .endpoint-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .endpoint-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border-radius: var(--radius-sm);
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.04);
+            transition: all 0.2s ease;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .endpoint-item:hover {
+            background: rgba(255,255,255,0.04);
+            border-color: rgba(255,255,255,0.08);
+        }
+
+        .ep-method {
+            font-family: var(--font-mono);
+            font-size: 0.62rem;
+            font-weight: 800;
+            padding: 2px 6px;
+            border-radius: 3px;
+            min-width: 36px;
+            text-align: center;
+        }
+
+        .ep-get { background: rgba(96,165,250,0.1); color: var(--accent-blue); }
+        .ep-post { background: rgba(167,139,250,0.1); color: var(--accent-purple); }
+
+        .ep-path {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-primary);
+            flex: 1;
+        }
+
+        .ep-desc {
+            font-size: 0.68rem;
+            color: var(--text-muted);
+        }
+
+        .server-info-block {
+            margin-top: 20px;
+            padding: 16px;
+            border-radius: var(--radius-sm);
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--card-border);
+        }
+
+        .server-info-block h4 {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .server-info-block pre {
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            color: var(--accent-green);
+            line-height: 1.8;
+            white-space: pre-wrap;
+        }
+
+        /* ========== PRESENTATION MODE ========== */
+        .pres-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+
+        .pres-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .pres-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.75);
+            z-index: 10001;
+        }
+
+        .pres-spotlight {
+            position: fixed;
+            z-index: 10002;
+            border-radius: var(--radius-lg);
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.78);
+            border: 1px solid rgba(255,255,255,0.15);
+            transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+        }
+
+        .pres-narration {
+            position: fixed;
+            bottom: 28px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10003;
+            width: min(680px, 92vw);
+            background: rgba(8,8,8,0.96);
+            backdrop-filter: blur(30px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: var(--radius-xl);
+            padding: 24px 28px 18px;
+            box-shadow: 0 16px 48px rgba(0,0,0,0.7);
+            animation: narrateIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes narrateIn {
+            0% { opacity: 0; transform: translateX(-50%) translateY(20px); }
+            100% { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+
+        .pres-step-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .pres-step-badge {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-secondary);
+        }
+
+        .pres-step-num {
+            background: rgba(255,255,255,0.1);
+            color: var(--text-primary);
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 900;
+        }
+
+        .pres-progress {
+            height: 3px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 3px;
+            width: 100px;
+            overflow: hidden;
+        }
+
+        .pres-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--text-secondary), var(--text-primary));
+            border-radius: 3px;
+            transition: width 0.4s ease;
+        }
+
+        .pres-title {
+            font-size: 1.05rem;
+            font-weight: 800;
+            margin-bottom: 6px;
+            color: #ffffff;
+        }
+
+        .pres-desc {
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+            line-height: 1.55;
+            margin-bottom: 14px;
+        }
+
+        .pres-controls {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        .pres-ctrl-btn {
+            padding: 8px 18px;
+            border-radius: var(--radius-sm);
+            font-family: var(--font-ui);
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all var(--transition-smooth);
+            border: none;
+        }
+
+        .pres-ctrl-exit {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: var(--text-secondary);
+        }
+
+        .pres-ctrl-exit:hover {
+            background: rgba(248,113,113,0.08);
+            color: var(--accent-red);
+        }
+
+        .pres-ctrl-next {
+            background: rgba(255,255,255,0.08);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+
+        .pres-ctrl-next:hover {
+            background: rgba(255,255,255,0.12);
+            transform: translateY(-1px);
+        }
+
+        /* ========== TOAST NOTIFICATIONS ========== */
+        .toast-container {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .toast {
+            padding: 12px 18px;
+            border-radius: var(--radius-sm);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--card-border);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            min-width: 280px;
+            animation: toastIn 0.3s ease;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            background: rgba(10,10,10,0.95);
+        }
+
+        .toast.toast-success { border-color: rgba(74,222,128,0.2); color: var(--accent-green); }
+        .toast.toast-error { border-color: rgba(248,113,113,0.2); color: var(--accent-red); }
+        .toast.toast-info { border-color: rgba(255,255,255,0.08); color: var(--text-secondary); }
+        .toast.toast-warning { border-color: rgba(251,191,36,0.2); color: var(--accent-amber); }
+
+        .toast.toast-exit { animation: toastOut 0.3s ease forwards; }
+
+        @keyframes toastIn {
+            0% { transform: translateX(80px); opacity: 0; }
+            100% { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes toastOut {
+            0% { transform: translateX(0); opacity: 1; }
+            100% { transform: translateX(100px); opacity: 0; }
+        }
+
+        .toast-icon { font-size: 1rem; }
+
+        /* ========== FOOTER ========== */
+        .footer {
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.68rem;
+            color: var(--text-muted);
+        }
+
+        .footer a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        .footer a:hover { color: var(--text-primary); }
+
+        /* ========== RESPONSIVE ========== */
+        @media (max-width: 1100px) {
+            .workspace { grid-template-columns: 1fr; }
+            .metrics-strip { grid-template-columns: repeat(2, 1fr); }
+            .diff-grid { grid-template-columns: 1fr; }
+            .diff-arrow { display: none; }
+            .pipeline-nodes { overflow-x: auto; }
+        }
+
+        @media (max-width: 600px) {
+            .metrics-strip { grid-template-columns: 1fr; }
+            .header { flex-direction: column; gap: 10px; }
+            .header-right { flex-wrap: wrap; justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Background -->
+    <div class="bg-glow"></div>
+    <div class="bg-grid"></div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Server Access Modal -->
+    <div class="modal-overlay" id="serverModal">
+        <div class="modal-content">
+            <button class="modal-close" id="modalCloseBtn">&#x2715;</button>
+            <div class="modal-title">Server API Access</div>
+            <div class="modal-subtitle">Self-Healing Dynamic API Bridge v2.0 is running on <strong id="modalServerUrl">http://127.0.0.1:8000</strong>. Below are all available API endpoints.</div>
+
+            <div class="endpoint-list" id="endpointList">
+                <a class="endpoint-item" href="/api/health" target="_blank" rel="noopener">
+                    <span class="ep-method ep-get">GET</span>
+                    <span class="ep-path">/api/health</span>
+                    <span class="ep-desc">Server health & status</span>
+                </a>
+                <a class="endpoint-item" href="/api/server-time" target="_blank" rel="noopener">
+                    <span class="ep-method ep-get">GET</span>
+                    <span class="ep-path">/api/server-time</span>
+                    <span class="ep-desc">Current server time (IST)</span>
+                </a>
+                <a class="endpoint-item" href="/api/metrics" target="_blank" rel="noopener">
+                    <span class="ep-method ep-get">GET</span>
+                    <span class="ep-path">/api/metrics</span>
+                    <span class="ep-desc">System metrics & statistics</span>
+                </a>
+                <a class="endpoint-item" href="/api/chaos-status" target="_blank" rel="noopener">
+                    <span class="ep-method ep-get">GET</span>
+                    <span class="ep-path">/api/chaos-status</span>
+                    <span class="ep-desc">Chaos state & audit logs</span>
+                </a>
+                <a class="endpoint-item" href="/api/pipeline-status" target="_blank" rel="noopener">
+                    <span class="ep-method ep-get">GET</span>
+                    <span class="ep-path">/api/pipeline-status</span>
+                    <span class="ep-desc">Pipeline topology & nodes</span>
+                </a>
+                <a class="endpoint-item" href="/api/simulate-random" target="_blank" rel="noopener">
+                    <span class="ep-method ep-get">GET</span>
+                    <span class="ep-path">/api/simulate-random</span>
+                    <span class="ep-desc">Random healing scenario</span>
+                </a>
+                <a class="endpoint-item" href="/api/bridge-request" target="_blank" rel="noopener">
+                    <span class="ep-method ep-get">GET</span>
+                    <span class="ep-path">/api/bridge-request</span>
+                    <span class="ep-desc">Self-healing bridge call</span>
+                </a>
+                <a class="endpoint-item" href="/api/direct-upstream" target="_blank" rel="noopener">
+                    <span class="ep-method ep-get">GET</span>
+                    <span class="ep-path">/api/direct-upstream</span>
+                    <span class="ep-desc">Direct call (no bridge)</span>
+                </a>
+                <div class="endpoint-item">
+                    <span class="ep-method ep-post">POST</span>
+                    <span class="ep-path">/api/toggle-chaos</span>
+                    <span class="ep-desc">Switch chaos mode</span>
+                </div>
+                <div class="endpoint-item">
+                    <span class="ep-method ep-post">POST</span>
+                    <span class="ep-path">/api/heal-payload</span>
+                    <span class="ep-desc">Heal custom payload</span>
+                </div>
+                <div class="endpoint-item">
+                    <span class="ep-method ep-post">POST</span>
+                    <span class="ep-path">/api/pipeline-trigger-failure</span>
+                    <span class="ep-desc">Trigger pipeline failure</span>
+                </div>
+                <div class="endpoint-item">
+                    <span class="ep-method ep-post">POST</span>
+                    <span class="ep-path">/api/pipeline-reset</span>
+                    <span class="ep-desc">Reset pipeline state</span>
+                </div>
+            </div>
+
+            <div class="server-info-block">
+                <h4>Quick Start</h4>
+                <pre id="serverQuickStart">$ python server.py
+$ curl http://127.0.0.1:8000/api/health
+$ curl http://127.0.0.1:8000/api/metrics
+$ curl -X POST http://127.0.0.1:8000/api/heal-payload \
+  -H "Content-Type: application/json" \
+  -d '{"payload":{"client_name":"John","mail_address":"j@x.com"}}'</pre>
+            </div>
+
+            <div class="server-info-block" id="serverHealthBlock" style="margin-top:12px;">
+                <h4>Live Server Status</h4>
+                <pre id="serverHealthPre">Fetching...</pre>
+            </div>
+        </div>
+    </div>
+
+    <div class="app-container">
+
+        <!-- ===== HEADER ===== -->
+        <header class="glass header">
+            <div class="brand">
+                <div class="brand-icon">&#x1F6E1;</div>
+                <div class="brand-text">
+                    <h1>Self-Healing Dynamic API Bridge</h1>
+                    <p>Autonomous Anomaly Detection &bull; Schema Repair &bull; Pipeline Failover Engine</p>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="server-clock">
+                    <span class="clock-label">IST</span>
+                    <span class="clock-time" id="serverClock">--:--:--</span>
+                </div>
+                <button class="access-server-btn" id="accessServerBtn">
+                    <span class="btn-dot"></span>
+                    Access Server
+                </button>
+                <button class="pres-btn" id="presStartBtn">
+                    &#x1F3AC; Presentation
+                </button>
+                <div class="live-indicator">
+                    <div class="live-dot"></div>
+                    <span>ACTIVE</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- ===== PIPELINE VISUALIZATION ===== -->
+        <div class="glass pipeline-section" id="pipelineSection">
+            <div class="pipeline-header">
+                <div class="pipeline-title">
+                    <span class="icon">&#x1F4E1;</span>
+                    Data Pipeline Topology
+                    <span class="pipeline-status-badge pipe-badge-active" id="pipelineStatusBadge">NOMINAL</span>
+                </div>
+                <div class="pipeline-controls">
+                    <button class="pipe-ctrl-btn danger" id="pipeFailBtn">&#x26A0; Inject Fault</button>
+                    <button class="pipe-ctrl-btn" id="pipeResetBtn">&#x21BB; Reset</button>
+                </div>
+            </div>
+
+            <div class="pipeline-canvas">
+                <!-- Primary Pipeline -->
+                <div class="pipeline-row">
+                    <div class="pipeline-label">
+                        Primary Pipeline <span class="pipe-id" id="primaryPipeId">PIPE-ALPHA-001</span>
+                    </div>
+                    <div class="pipeline-nodes" id="primaryNodes">
+                        <div class="pipe-connector"><div class="pipe-connector-line" id="primaryFlow"></div></div>
+                        <!-- Nodes rendered by JS -->
+                    </div>
+                </div>
+
+                <!-- Secondary / Failover Pipeline -->
+                <div class="pipeline-row">
+                    <div class="pipeline-label">
+                        Failover Pipeline <span class="pipe-id" id="secondaryPipeId">PIPE-BETA-002</span>
+                    </div>
+                    <div class="pipeline-nodes" id="secondaryNodes">
+                        <div class="pipe-connector"><div class="pipe-connector-line flow-stopped" id="secondaryFlow"></div></div>
+                        <!-- Nodes rendered by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="repair-bar" id="repairBar">
+                <span class="repair-bar-label">&#x1F527; REPAIRING PRIMARY</span>
+                <div class="repair-bar-track">
+                    <div class="repair-bar-fill" id="repairBarFill" style="width: 0%"></div>
+                </div>
+                <span class="repair-bar-pct" id="repairBarPct">0%</span>
+            </div>
+        </div>
+
+        <!-- ===== AUTOPILOT STREAM BAR ===== -->
+        <div class="autopilot-bar" id="autopilotBar">
+            <div class="autopilot-left">
+                <div class="autopilot-pulse-badge" id="autopilotBadge">
+                    <span class="autopilot-dot"></span>
+                    <span class="autopilot-label" id="autopilotStatusText">AUTOPILOT: STREAMING</span>
+                </div>
+                <div class="autopilot-endpoint">
+                    <span class="method-tag method-post" id="autoMethod">POST</span>
+                    <span class="endpoint-path" id="autoPath">/api/v1/user/checkout</span>
+                </div>
+            </div>
+            <div class="autopilot-center">
+                <span class="scenario-pill" id="scenarioPill">Initializing...</span>
+            </div>
+            <div class="autopilot-controls">
+                <div class="speed-group">
+                    <button class="speed-btn" data-speed="4000">4s</button>
+                    <button class="speed-btn active" data-speed="2500">2.5s</button>
+                    <button class="speed-btn" data-speed="1200">1.2s</button>
+                </div>
+                <button class="autopilot-toggle-btn" id="autopilotToggleBtn">
+                    <span id="autopilotToggleIcon">&#x23F8;</span>
+                    <span id="autopilotToggleLabel">Pause</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- ===== METRICS ===== -->
+        <div class="metrics-strip">
+            <div class="glass metric-tile">
+                <div class="metric-label">Total API Requests</div>
+                <div class="metric-number" id="mTotal" style="color: var(--accent-silver);">0</div>
+                <div class="metric-sub">All monitored calls</div>
+            </div>
+            <div class="glass metric-tile">
+                <div class="metric-label">Auto-Healed</div>
+                <div class="metric-number" id="mHealed" style="color: var(--accent-green);">0</div>
+                <div class="metric-sub">Anomalies self-repaired</div>
+            </div>
+            <div class="glass metric-tile">
+                <div class="metric-label">Unprotected Failures</div>
+                <div class="metric-number" id="mFailed" style="color: var(--accent-red);">0</div>
+                <div class="metric-sub">Direct calls without bridge</div>
+            </div>
+            <div class="glass metric-tile">
+                <div class="metric-label">Healing Efficiency</div>
+                <div class="metric-number" id="mRate" style="color: var(--accent-blue);">100<span style="font-size:0.9rem;">%</span></div>
+                <div class="metric-sub">Bridge success rate</div>
+            </div>
+        </div>
+
+        <!-- ===== WORKSPACE ===== -->
+        <div class="workspace">
+
+            <!-- LEFT: Controls -->
+            <div class="glass control-panel">
+                <div>
+                    <div class="panel-heading"><span class="icon">&#x26A1;</span> Chaos Engineering</div>
+                    <p class="panel-desc">Simulate real-world API breaking changes. Select a failure mode, then test the bridge.</p>
+                </div>
+
+                <div class="chaos-grid">
+                    <button class="chaos-btn state-normal is-active" data-mode="normal" id="chaosBtnNormal">
+                        <span class="btn-indicator"></span>
+                        <span class="btn-label">Normal API State</span>
+                        <span class="btn-arrow">&#x25B6;</span>
+                    </button>
+                    <button class="chaos-btn state-rename" data-mode="renamed_keys" id="chaosBtnRename">
+                        <span class="btn-indicator"></span>
+                        <span class="btn-label">Rename Schema Fields</span>
+                        <span class="btn-arrow">&#x25B6;</span>
+                    </button>
+                    <button class="chaos-btn state-type" data-mode="type_mismatch" id="chaosBtnType">
+                        <span class="btn-indicator"></span>
+                        <span class="btn-label">Corrupt Data Types</span>
+                        <span class="btn-arrow">&#x25B6;</span>
+                    </button>
+                    <button class="chaos-btn state-outage" data-mode="server_outage" id="chaosBtnOutage">
+                        <span class="btn-indicator"></span>
+                        <span class="btn-label">Server Outage (HTTP 500)</span>
+                        <span class="btn-arrow">&#x25B6;</span>
+                    </button>
+                </div>
+
+                <div class="divider"></div>
+
+                <div>
+                    <div class="panel-heading"><span class="icon">&#x1F9EA;</span> Test Bench</div>
+                    <p class="panel-desc">Compare unprotected API calls vs. self-healing bridge calls.</p>
+                </div>
+
+                <div class="action-group">
+                    <button class="action-btn btn-unsafe" id="btnDirect">
+                        <span class="btn-spinner"></span>
+                        <span class="btn-text">&#x274C; Send Direct (No Bridge)</span>
+                    </button>
+                    <button class="action-btn btn-heal" id="btnBridge">
+                        <span class="btn-spinner"></span>
+                        <span class="btn-text">&#x1F6E1; Call via Self-Healing Bridge</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- RIGHT: Results -->
+            <div class="results-area">
+                <!-- Diagnosis Banner -->
+                <div class="glass diagnosis-banner" id="diagBanner">
+                    <div class="diag-top-row">
+                        <span class="diag-strategy" id="diagStrategy">Select a chaos mode and send a test request...</span>
+                        <span class="status-tag tag-ready" id="diagTag">AWAITING</span>
+                    </div>
+                    <ul class="repair-list" id="repairList">
+                        <li><span class="repair-icon">&#x1F4CB;</span> No request initiated yet. Choose a chaos scenario and click a test button.</li>
+                    </ul>
+                </div>
+
+                <!-- Diff Viewer -->
+                <div class="diff-grid">
+                    <div class="code-panel panel-raw">
+                        <div class="code-header">
+                            <span class="code-header-title title-raw">Raw Upstream Response</span>
+                            <span class="code-status-pill" id="rawHttpCode">HTTP ---</span>
+                        </div>
+                        <div class="code-body" id="rawBody">// Raw response from server will appear here
+// Click a test button to begin...</div>
+                    </div>
+
+                    <div class="diff-arrow">
+                        <div class="arrow-icon" id="arrowIcon">&#x27A1;</div>
+                    </div>
+
+                    <div class="code-panel panel-healed">
+                        <div class="code-header">
+                            <span class="code-header-title title-healed">Healed Output (App Receives)</span>
+                            <span class="code-status-pill" id="healedHttpCode">HTTP 200</span>
+                        </div>
+                        <div class="code-body" id="healedBody">// Self-healed response will appear here
+// The bridge repairs anomalies automatically</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== AUDIT LOG TABLE ===== -->
+        <div class="glass audit-section">
+            <div class="audit-heading">
+                <h2><span>&#x1F4CB;</span> System Audit Feed</h2>
+                <span class="log-count-badge" id="logCount">0 events</span>
+            </div>
+
+            <table class="audit-table">
+                <thead>
+                    <tr>
+                        <th style="width: 90px;">Time</th>
+                        <th style="width: 160px;">Event Type</th>
+                        <th>Description</th>
+                        <th style="width: 100px;">Status</th>
+                    </tr>
+                </thead>
+                <tbody id="auditBody">
+                    <tr>
+                        <td colspan="4">
+                            <div class="empty-state">
+                                <div class="empty-icon">&#x1F50D;</div>
+                                <div>No events recorded yet. Start by triggering a chaos scenario.</div>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ===== FOOTER ===== -->
+        <div class="footer">
+            <span>Self-Healing Dynamic API Bridge v2.0 &bull; Autonomous Schema Repair Engine</span>
+            <span id="footerClock"></span>
+        </div>
+
+    </div>
+
+    <script>
+        // ========== REAL-TIME CLOCK ==========
+        function updateClock() {
+            const now = new Date();
+            const opts = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' };
+            const timeStr = now.toLocaleTimeString('en-IN', opts);
+            const dateOpts = { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Kolkata' };
+            const dateStr = now.toLocaleDateString('en-IN', dateOpts);
+            document.getElementById('serverClock').textContent = timeStr;
+            document.getElementById('footerClock').textContent = dateStr + ' ' + timeStr + ' IST';
+        }
+        updateClock();
+        setInterval(updateClock, 1000);
+
+        // ========== TOAST SYSTEM ==========
+        function showToast(message, type, icon) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = 'toast toast-' + type;
+            const iconSpan = document.createElement('span');
+            iconSpan.className = 'toast-icon';
+            iconSpan.textContent = icon;
+            const msgSpan = document.createElement('span');
+            msgSpan.textContent = message;
+            toast.appendChild(iconSpan);
+            toast.appendChild(msgSpan);
+            container.appendChild(toast);
+            setTimeout(function() {
+                toast.classList.add('toast-exit');
+                setTimeout(function() { toast.remove(); }, 300);
+            }, 3200);
+        }
+
+        // ========== SERVER ACCESS MODAL ==========
+        document.getElementById('accessServerBtn').addEventListener('click', function() {
+            document.getElementById('serverModal').classList.add('active');
+            fetchServerHealth();
+        });
+
+        document.getElementById('modalCloseBtn').addEventListener('click', function() {
+            document.getElementById('serverModal').classList.remove('active');
+        });
+
+        document.getElementById('serverModal').addEventListener('click', function(e) {
+            if (e.target === this) this.classList.remove('active');
+        });
+
+        async function fetchServerHealth() {
+            const pre = document.getElementById('serverHealthPre');
+            try {
+                const res = await fetch('/api/health');
+                if (res.ok) {
+                    const data = await res.json();
+                    pre.textContent = JSON.stringify(data, null, 2);
+                } else {
+                    pre.textContent = 'Server returned HTTP ' + res.status;
+                }
+            } catch (e) {
+                pre.textContent = 'Server offline — running in standalone mode.\nStart server: python server.py';
+            }
+        }
+
+        // ========== VIRTUAL CLIENT-SIDE ENGINE ==========
+        const VIRTUAL_ALIASES = {
+            username: ["full_name", "user_name", "client_name", "usr_name", "account_name", "display_name"],
+            email: ["user_email", "mail_address", "contact_email", "email_addr", "e_mail"],
+            phone: ["mobile_number", "phone_number", "contact_no", "ph_number", "telephone", "cell"],
+            age: ["user_age", "years_old", "age_yrs", "birth_age"],
+            status: ["account_status", "is_active", "user_status", "acct_status"],
+            balance: ["account_balance", "wallet_balance", "curr_balance", "funds"]
+        };
+
+        let localChaosState = { mode: "normal", total_requests: 0, healed_requests: 0, failed_requests: 0 };
+        let localAuditLogs = [];
+        let backendOnline = true;
+        let autopilotActive = true;
+        let autopilotTimer = null;
+        let autopilotSpeed = 2500;
+        let manualPauseTimeout = null;
+
+        function recordLocalLog(type, desc, status) {
+            status = status || "HEALED";
+            const now = new Date();
+            const opts = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' };
+            const ts = now.toLocaleTimeString('en-IN', opts) + '.' + String(now.getMilliseconds()).padStart(3, '0');
+            localAuditLogs.unshift({ timestamp: ts, type: type, description: desc, status: status });
+            if (localAuditLogs.length > 50) localAuditLogs.pop();
+        }
+
+        function virtualHealPayload(raw) {
+            const healed = {};
+            const repairs = [];
+            for (const [key, val] of Object.entries(raw)) {
+                let canonical = key;
+                for (const [stdKey, aliases] of Object.entries(VIRTUAL_ALIASES)) {
+                    if (aliases.includes(key) || key === stdKey) {
+                        canonical = stdKey;
+                        if (key !== stdKey) repairs.push("ALIAS_MAP: '" + key + "' -> '" + stdKey + "'");
+                        break;
+                    }
+                }
+                let finalVal = val;
+                if (typeof val === 'string' && /^\d+$/.test(val)) {
+                    finalVal = parseInt(val, 10);
+                    repairs.push("TYPE_COERCE: '" + canonical + "' string -> int(" + finalVal + ")");
+                }
+                healed[canonical] = finalVal;
+            }
+            return { healed: healed, repairs: repairs };
+        }
+
+        function generateVirtualScenario() {
+            localChaosState.total_requests++;
+            const users = [
+                { name: "sarah_connor", email: "sarah@skynet.io", phone: "+1-555-0142", age: 29 },
+                { name: "alex_mercer", email: "alex@prototype.org", phone: "+1-555-8933", age: 31 },
+                { name: "marcus_wright", email: "marcus@resistance.net", phone: "+1-555-4421", age: 38 },
+                { name: "elena_fisher", email: "elena@uncharted.com", phone: "+1-555-7719", age: 26 },
+                { name: "jordan_belfort", email: "jordan@wallst.co", phone: "+1-555-3211", age: 35 },
+                { name: "maya_patel", email: "maya@techcorp.in", phone: "+91-555-9201", age: 27 }
+            ];
+            const u = users[Math.floor(Math.random() * users.length)];
+            const r = Math.random();
+
+            if (r < 0.38) {
+                const raw = { client_name: u.name, mail_address: u.email, contact_no: u.phone, years_old: String(u.age), account_status: "active" };
+                const result = virtualHealPayload(raw);
+                localChaosState.healed_requests++;
+                recordLocalLog("SCHEMA_AUTO_HEALED", "Auto-mapped " + result.repairs.length + " drifted fields for '" + u.name + "'.", "HEALED");
+                return {
+                    endpoint: "POST /api/v1/user/checkout", method: "POST", path: "/api/v1/user/checkout",
+                    bridge_status: "HEALED", scenario: "Schema Drift Auto-Healed", original_status: 200,
+                    applied_strategy: "Dynamic Schema Mapping & Fuzzy Reconciliation",
+                    latency_ms: (10 + Math.random() * 8).toFixed(2),
+                    raw_unstable_payload: raw, healed_payload: result.healed, repairs: result.repairs
+                };
+            } else if (r < 0.62) {
+                const raw = { username: u.name, email: u.email, phone: u.phone, age: String(u.age), balance: String(Math.floor(Math.random() * 4000 + 200)) };
+                const result = virtualHealPayload(raw);
+                localChaosState.healed_requests++;
+                recordLocalLog("TYPE_NORMALIZED", "Normalized string types for '" + u.name + "'.", "HEALED");
+                return {
+                    endpoint: "GET /api/v1/crm/customer/profile", method: "GET", path: "/api/v1/crm/customer/profile",
+                    bridge_status: "HEALED", scenario: "Type Mutation Repaired", original_status: 200,
+                    applied_strategy: "Runtime Type Sanitization & Strict Coercion",
+                    latency_ms: (8 + Math.random() * 6).toFixed(2),
+                    raw_unstable_payload: raw, healed_payload: result.healed, repairs: result.repairs
+                };
+            } else if (r < 0.82) {
+                localChaosState.healed_requests++;
+                const latency = (22 + Math.random() * 15).toFixed(2);
+                recordLocalLog("ENDPOINT_FAILOVER", "Primary server 500. Circuit breaker failover to standby pool.", "HEALED");
+                return {
+                    endpoint: "POST /api/v1/payments/charge", method: "POST", path: "/api/v1/payments/charge",
+                    bridge_status: "HEALED", scenario: "Server 500 -> Standby Failover", original_status: 500,
+                    applied_strategy: "Circuit Breaker Tripped -> Hot Standby Failover",
+                    latency_ms: latency,
+                    raw_unstable_payload: { error: "Internal Server Error", code: 500, upstream: "primary-node-alpha: connection refused" },
+                    healed_payload: { transaction_id: "tx_" + Math.floor(Math.random() * 899999 + 100000), customer: u.name, status: "APPROVED", routed_via: "hot-standby-node-02" },
+                    repairs: ["Circuit Breaker Intercepted HTTP 500", "Rerouted to Hot Standby Node (0 lost packets)"]
+                };
+            } else {
+                recordLocalLog("PASS_THROUGH", "Zero drift detected for " + u.name + ". Transparent pass-through.", "PASSED");
+                return {
+                    endpoint: "GET /api/v1/inventory/telemetry", method: "GET", path: "/api/v1/inventory/telemetry",
+                    bridge_status: "PASS_THROUGH", scenario: "Clean Pass-Through (Zero Drift)", original_status: 200,
+                    applied_strategy: "Contract Verified. Zero-overhead pass-through.",
+                    latency_ms: (4 + Math.random() * 3).toFixed(2),
+                    raw_unstable_payload: { username: u.name, email: u.email, phone: u.phone, age: u.age, status: "active" },
+                    healed_payload: { username: u.name, email: u.email, phone: u.phone, age: u.age, status: "active" },
+                    repairs: []
+                };
+            }
+        }
+
+        // ========== PIPELINE RENDERING ==========
+        let localPipelineState = null;
+
+        const DEFAULT_PRIMARY_NODES = [
+            "Ingress Gateway", "TLS Terminator", "Rate Limiter", "Auth Validator",
+            "Schema Validator", "Payload Parser", "Business Logic", "Cache Layer",
+            "Data Transformer", "Outbound Serializer", "Response Compressor", "Egress Gateway"
+        ];
+        const DEFAULT_SECONDARY_NODES = [
+            "Failover Ingress", "TLS Proxy", "Backup Rate Limiter", "Auth Mirror",
+            "Schema Validator B", "Payload Parser B", "Logic Replica", "Cache Replica",
+            "Transformer B", "Serializer B", "Compressor B", "Failover Egress"
+        ];
+
+        function initLocalPipeline() {
+            localPipelineState = {
+                primary: { nodes: DEFAULT_PRIMARY_NODES.map(function(n, i) { return { id: "PN-" + String(i).padStart(3, "0"), name: n, status: "ACTIVE", load: 15 + Math.floor(Math.random() * 60) }; }), status: "ACTIVE" },
+                secondary: { nodes: DEFAULT_SECONDARY_NODES.map(function(n, i) { return { id: "SN-" + String(i).padStart(3, "0"), name: n, status: "STANDBY", load: 0 }; }), status: "STANDBY" },
+                failover_active: false, repair_progress: 0, active_pipeline: "primary", failover_reason: null
+            };
+        }
+        initLocalPipeline();
+
+        function renderPipelineNodes(containerId, nodes, flowId) {
+            const container = document.getElementById(containerId);
+            // Keep the connector element
+            const connector = container.querySelector('.pipe-connector');
+            // Clear all pipe-node elements
+            const existing = container.querySelectorAll('.pipe-node');
+            existing.forEach(function(el) { el.remove(); });
+
+            nodes.forEach(function(node) {
+                const el = document.createElement('div');
+                el.className = 'pipe-node';
+
+                const box = document.createElement('div');
+                box.className = 'node-box node-' + node.status.toLowerCase();
+
+                const dot = document.createElement('div');
+                dot.className = 'node-status-dot dot-' + node.status.toLowerCase();
+                box.appendChild(dot);
+
+                const nameEl = document.createElement('div');
+                nameEl.className = 'node-name';
+                nameEl.textContent = node.name;
+                box.appendChild(nameEl);
+
+                const loadEl = document.createElement('div');
+                loadEl.className = 'node-load';
+                loadEl.textContent = node.load + '%';
+                box.appendChild(loadEl);
+
+                el.appendChild(box);
+                container.appendChild(el);
+            });
+        }
+
+        function updatePipelineUI(state) {
+            if (!state) return;
+
+            renderPipelineNodes('primaryNodes', state.primary.nodes, 'primaryFlow');
+            renderPipelineNodes('secondaryNodes', state.secondary.nodes, 'secondaryFlow');
+
+            const badge = document.getElementById('pipelineStatusBadge');
+            const primaryFlow = document.getElementById('primaryFlow');
+            const secondaryFlow = document.getElementById('secondaryFlow');
+            const repairBar = document.getElementById('repairBar');
+
+            if (state.failover_active) {
+                badge.className = 'pipeline-status-badge pipe-badge-failover';
+                badge.textContent = 'FAILOVER ACTIVE';
+                primaryFlow.className = 'pipe-connector-line flow-error';
+                secondaryFlow.className = 'pipe-connector-line';
+
+                repairBar.classList.add('visible');
+                document.getElementById('repairBarFill').style.width = state.repair_progress + '%';
+                document.getElementById('repairBarPct').textContent = Math.round(state.repair_progress) + '%';
+            } else {
+                badge.className = 'pipeline-status-badge pipe-badge-active';
+                badge.textContent = 'NOMINAL';
+                primaryFlow.className = 'pipe-connector-line';
+                secondaryFlow.className = 'pipe-connector-line flow-stopped';
+                repairBar.classList.remove('visible');
+            }
+        }
+
+        async function fetchPipelineStatus() {
+            try {
+                const res = await fetch('/api/pipeline-status');
+                if (res.ok) {
+                    const data = await res.json();
+                    localPipelineState = data;
+                }
+            } catch (e) {
+                // Use local state, simulate ticks
+                if (localPipelineState.failover_active) {
+                    localPipelineState.repair_progress = Math.min(100, localPipelineState.repair_progress + Math.random() * 3);
+                    if (localPipelineState.repair_progress >= 100) {
+                        localPipelineState.failover_active = false;
+                        localPipelineState.active_pipeline = "primary";
+                        localPipelineState.repair_progress = 0;
+                        localPipelineState.primary.status = "ACTIVE";
+                        localPipelineState.primary.nodes.forEach(function(n) { n.status = "ACTIVE"; n.load = 15 + Math.floor(Math.random() * 50); });
+                        localPipelineState.secondary.status = "STANDBY";
+                        localPipelineState.secondary.nodes.forEach(function(n) { n.status = "STANDBY"; n.load = 0; });
+                        recordLocalLog("PIPELINE_RESTORED", "Primary pipeline repaired. Failover returned to standby.", "HEALED");
+                        showToast('Primary pipeline restored!', 'success', '\u2705');
+                    }
+                }
+                // Simulate load changes
+                localPipelineState[localPipelineState.active_pipeline].nodes.forEach(function(n) {
+                    if (n.status === "ACTIVE") n.load = Math.max(5, Math.min(95, n.load + Math.floor(Math.random() * 16 - 8)));
+                });
+            }
+            updatePipelineUI(localPipelineState);
+        }
+
+        // Pipeline controls
+        document.getElementById('pipeFailBtn').addEventListener('click', async function() {
+            try {
+                const res = await fetch('/api/pipeline-trigger-failure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.status === 'already_in_failover') {
+                        showToast('Pipeline already in failover mode', 'warning', '\u26A0');
+                    } else {
+                        showToast('Pipeline failure injected! Failover active.', 'error', '\u26A0');
+                    }
+                    fetchPipelineStatus();
+                    return;
+                }
+            } catch (e) { /* fallback */ }
+
+            // Local fallback
+            if (localPipelineState.failover_active) {
+                showToast('Pipeline already in failover mode', 'warning', '\u26A0');
+                return;
+            }
+            const failIdx = 3 + Math.floor(Math.random() * 6);
+            localPipelineState.primary.nodes[failIdx].status = "FAILED";
+            localPipelineState.primary.nodes[failIdx].load = 0;
+            for (let i = failIdx + 1; i < localPipelineState.primary.nodes.length; i++) {
+                localPipelineState.primary.nodes[i].status = "BLOCKED";
+                localPipelineState.primary.nodes[i].load = 0;
+            }
+            localPipelineState.primary.status = "FAILED";
+            localPipelineState.failover_active = true;
+            localPipelineState.active_pipeline = "secondary";
+            localPipelineState.repair_progress = 0;
+            localPipelineState.secondary.status = "ACTIVE";
+            localPipelineState.secondary.nodes.forEach(function(n) { n.status = "ACTIVE"; n.load = 20 + Math.floor(Math.random() * 40); });
+            recordLocalLog("PIPELINE_FAILOVER", "Node '" + localPipelineState.primary.nodes[failIdx].name + "' failed. Traffic rerouted to failover pipeline.", "FAILOVER");
+            showToast('Pipeline failure injected! Failover active.', 'error', '\u26A0');
+            updatePipelineUI(localPipelineState);
+        });
+
+        document.getElementById('pipeResetBtn').addEventListener('click', async function() {
+            try {
+                await fetch('/api/pipeline-reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+            } catch (e) { /* ignore */ }
+            initLocalPipeline();
+            updatePipelineUI(localPipelineState);
+            recordLocalLog("PIPELINE_RESET", "Pipeline topology reset to clean state.", "SYSTEM");
+            showToast('Pipeline reset to nominal state.', 'info', '\u21BB');
+        });
+
+        // ========== METRIC ANIMATIONS ==========
+        function animateMetric(el, newVal) {
+            if (el.textContent !== String(newVal) && el.textContent !== String(newVal) + '%') {
+                el.classList.remove('count-up');
+                void el.offsetWidth;
+                el.classList.add('count-up');
+            }
+        }
+
+        function updateMetricsDisplay(s) {
+            const totalEl = document.getElementById('mTotal');
+            const healedEl = document.getElementById('mHealed');
+            const failedEl = document.getElementById('mFailed');
+            const rateEl = document.getElementById('mRate');
+
+            animateMetric(totalEl, s.total_requests);
+            animateMetric(healedEl, s.healed_requests);
+            animateMetric(failedEl, s.failed_requests);
+
+            totalEl.textContent = s.total_requests;
+            healedEl.textContent = s.healed_requests;
+            failedEl.textContent = s.failed_requests;
+
+            const rate = s.total_requests === 0 ? 100 : Math.round(((s.total_requests - s.failed_requests) / s.total_requests) * 100);
+            const span = document.createElement('span');
+            span.style.fontSize = '0.9rem';
+            span.textContent = '%';
+            rateEl.textContent = rate;
+            rateEl.appendChild(span);
+        }
+
+        function updateAuditTable(logs) {
+            const tbody = document.getElementById('auditBody');
+            const countBadge = document.getElementById('logCount');
+            if (logs && logs.length > 0) {
+                countBadge.textContent = logs.length + ' events';
+                tbody.textContent = '';
+                logs.forEach(function(log, i) {
+                    const tr = document.createElement('tr');
+                    if (i === 0) tr.className = 'new-log';
+
+                    const tdTime = document.createElement('td');
+                    const timeSpan = document.createElement('span');
+                    timeSpan.className = 'log-time';
+                    timeSpan.textContent = log.timestamp;
+                    tdTime.appendChild(timeSpan);
+
+                    const tdType = document.createElement('td');
+                    const typeSpan = document.createElement('span');
+                    typeSpan.className = 'log-type-tag ' + getLogTypeClass(log.type);
+                    typeSpan.textContent = log.type;
+                    tdType.appendChild(typeSpan);
+
+                    const tdDesc = document.createElement('td');
+                    tdDesc.style.color = '#a1a1aa';
+                    tdDesc.textContent = log.description;
+
+                    const tdStatus = document.createElement('td');
+                    const statusSpan = document.createElement('span');
+                    statusSpan.className = 'status-dot ' + getStatusDotClass(log.status);
+                    statusSpan.textContent = log.status;
+                    tdStatus.appendChild(statusSpan);
+
+                    tr.appendChild(tdTime);
+                    tr.appendChild(tdType);
+                    tr.appendChild(tdDesc);
+                    tr.appendChild(tdStatus);
+                    tbody.appendChild(tr);
+                });
+            }
+        }
+
+        // ========== APPLY HEALING RESULT TO UI ==========
+        function applyHealingToUI(data) {
+            const rawEl = document.getElementById('rawBody');
+            const healedEl = document.getElementById('healedBody');
+            const arrowEl = document.getElementById('arrowIcon');
+            const pillEl = document.getElementById('scenarioPill');
+            const methodEl = document.getElementById('autoMethod');
+            const pathEl = document.getElementById('autoPath');
+
+            if (data.endpoint) {
+                const parts = data.endpoint.split(' ');
+                if (parts.length >= 2) {
+                    methodEl.textContent = parts[0];
+                    methodEl.className = 'method-tag method-' + parts[0].toLowerCase();
+                    pathEl.textContent = parts[1];
+                }
+            }
+
+            if (data.scenario) {
+                pillEl.textContent = data.scenario;
+                pillEl.classList.remove('flash');
+                void pillEl.offsetWidth;
+                pillEl.classList.add('flash');
+            }
+
+            document.getElementById('rawHttpCode').textContent = 'HTTP ' + (data.original_status || 200);
+            document.getElementById('healedHttpCode').textContent = 'HTTP 200 OK (' + (data.latency_ms || 12) + 'ms)';
+
+            rawEl.classList.remove('flash-red', 'flash-green');
+            void rawEl.offsetWidth;
+            rawEl.textContent = JSON.stringify(data.raw_unstable_payload, null, 2);
+            if (data.original_status === 500 || (data.repairs && data.repairs.length > 0)) {
+                rawEl.classList.add('flash-red');
+            }
+
+            healedEl.classList.remove('flash-red', 'flash-green');
+            void healedEl.offsetWidth;
+            healedEl.classList.add('flash-green');
+            healedEl.textContent = JSON.stringify(data.healed_payload || data.data, null, 2);
+
+            arrowEl.classList.remove('healing');
+            void arrowEl.offsetWidth;
+            arrowEl.classList.add('healing');
+
+            document.getElementById('diagStrategy').textContent = data.applied_strategy;
+            if (data.bridge_status === 'HEALED') {
+                setDiagTag('healed', 'AUTO-HEALED');
+            } else {
+                setDiagTag('pass', 'PASS-THROUGH');
+            }
+
+            const repairList = document.getElementById('repairList');
+            repairList.textContent = '';
+            if (data.repairs && data.repairs.length > 0) {
+                data.repairs.forEach(function(r) {
+                    const li = document.createElement('li');
+                    const iconSpan = document.createElement('span');
+                    iconSpan.className = 'repair-icon';
+                    iconSpan.textContent = '\u2728';
+                    li.appendChild(iconSpan);
+                    const textNode = document.createTextNode(' ' + r);
+                    li.appendChild(textNode);
+                    repairList.appendChild(li);
+                });
+            } else {
+                const li = document.createElement('li');
+                const iconSpan = document.createElement('span');
+                iconSpan.className = 'repair-icon';
+                iconSpan.textContent = '\u2705';
+                li.appendChild(iconSpan);
+                li.appendChild(document.createTextNode(' Zero drift. Clean response verified against canonical schema.'));
+                repairList.appendChild(li);
+            }
+        }
+
+        // ========== AUTOPILOT ENGINE ==========
+        async function autopilotTick() {
+            if (!autopilotActive || presActive) return;
+
+            try {
+                const res = await fetch('/api/simulate-random');
+                if (res.ok) {
+                    const data = await res.json();
+                    backendOnline = true;
+                    applyHealingToUI(data);
+                    refreshStatus();
+                    fetchPipelineStatus();
+                    return;
+                }
+            } catch (e) {
+                backendOnline = false;
+            }
+
+            const vData = generateVirtualScenario();
+            applyHealingToUI(vData);
+            updateMetricsDisplay(localChaosState);
+            updateAuditTable(localAuditLogs);
+            fetchPipelineStatus();
+        }
+
+        function startAutopilot() {
+            if (autopilotTimer) clearInterval(autopilotTimer);
+            autopilotTimer = setInterval(autopilotTick, autopilotSpeed);
+            autopilotActive = true;
+
+            document.getElementById('autopilotBadge').classList.remove('paused');
+            document.getElementById('autopilotStatusText').textContent = 'AUTOPILOT: STREAMING';
+            document.getElementById('autopilotToggleIcon').textContent = '\u23F8';
+            document.getElementById('autopilotToggleLabel').textContent = 'Pause';
+        }
+
+        function pauseAutopilot() {
+            if (autopilotTimer) clearInterval(autopilotTimer);
+            autopilotTimer = null;
+            autopilotActive = false;
+
+            document.getElementById('autopilotBadge').classList.add('paused');
+            document.getElementById('autopilotStatusText').textContent = 'AUTOPILOT: PAUSED';
+            document.getElementById('autopilotToggleIcon').textContent = '\u25B6';
+            document.getElementById('autopilotToggleLabel').textContent = 'Resume';
+        }
+
+        document.getElementById('autopilotToggleBtn').addEventListener('click', function() {
+            if (autopilotActive) {
+                pauseAutopilot();
+                showToast('Autopilot paused', 'info', '\u23F8');
+            } else {
+                startAutopilot();
+                showToast('Autopilot resumed', 'success', '\u25B6');
+                autopilotTick();
+            }
+        });
+
+        // Speed buttons
+        document.querySelectorAll('.speed-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.speed-btn').forEach(function(b) { b.classList.remove('active'); });
+                btn.classList.add('active');
+                autopilotSpeed = parseInt(btn.getAttribute('data-speed'));
+                if (autopilotActive) startAutopilot();
+                showToast('Stream interval: ' + (autopilotSpeed / 1000) + 's', 'info', '\u26A1');
+            });
+        });
+
+        function pauseTemporarilyForManual(ms) {
+            ms = ms || 8000;
+            if (!autopilotActive) return;
+            if (autopilotTimer) clearInterval(autopilotTimer);
+            if (manualPauseTimeout) clearTimeout(manualPauseTimeout);
+
+            document.getElementById('autopilotStatusText').textContent = 'AUTOPILOT: HOLD';
+
+            manualPauseTimeout = setTimeout(function() {
+                if (autopilotActive && !presActive) startAutopilot();
+            }, ms);
+        }
+
+        // ========== CHAOS MODE ==========
+        document.querySelectorAll('.chaos-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const mode = btn.getAttribute('data-mode');
+                setChaos(mode, btn);
+            });
+        });
+
+        async function setChaos(mode, btn) {
+            document.querySelectorAll('.chaos-btn').forEach(function(b) { b.classList.remove('is-active'); });
+            btn.classList.add('is-active');
+            localChaosState.mode = mode;
+            pauseTemporarilyForManual(7000);
+
+            try {
+                await fetch('/api/toggle-chaos', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode: mode })
+                });
+            } catch (err) {
+                backendOnline = false;
+            }
+
+            var labels = {
+                normal: ['Normal mode activated', 'info', '\u2705'],
+                renamed_keys: ['Schema fields will be RENAMED', 'warning', '\u26A0'],
+                type_mismatch: ['Data types will be CORRUPTED', 'warning', '\u26A0'],
+                server_outage: ['Server will CRASH with HTTP 500!', 'error', '\u26A0']
+            };
+            var info = labels[mode] || ['Mode changed', 'info', '\u2139'];
+            recordLocalLog("CHAOS_STATE_CHANGED", "Chaos state set to '" + mode + "'", "SYSTEM");
+            showToast(info[0], info[1], info[2]);
+            refreshStatus();
+        }
+
+        // ========== SEND DIRECT ==========
+        document.getElementById('btnDirect').addEventListener('click', sendDirect);
+
+        async function sendDirect() {
+            pauseTemporarilyForManual(8000);
+            var btn = document.getElementById('btnDirect');
+            btn.classList.add('btn-loading');
+
+            var rawEl = document.getElementById('rawBody');
+            var healedEl = document.getElementById('healedBody');
+            rawEl.textContent = 'Sending direct request...';
+            healedEl.textContent = 'N/A — Bridge is BYPASSED.';
+
+            var status = 200;
+            var data = null;
+
+            try {
+                var res = await fetch('/api/direct-upstream');
+                status = res.status;
+                data = await res.json();
+            } catch (err) {
+                localChaosState.total_requests++;
+                var mode = localChaosState.mode;
+                if (mode === 'normal') {
+                    data = { status: "success", data: { username: "alex_dev", email: "alex@example.com", phone: "555-0199", age: 21 } };
+                } else if (mode === 'renamed_keys') {
+                    data = { status: "success", data: { full_name: "alex_dev", mail_address: "alex@example.com", mobile_number: "555-0199", age_yrs: 21 } };
+                } else if (mode === 'type_mismatch') {
+                    data = { status: "success", data: { username: "alex_dev", email: "alex@example.com", phone: "555-0199", age: "21" } };
+                } else if (mode === 'server_outage') {
+                    status = 500;
+                    localChaosState.failed_requests++;
+                    recordLocalLog("DIRECT_CALL_FAILED", "Primary API returned HTTP 500. Consumer crashed.", "FAILED");
+                    data = { error: "Internal Server Error", message: "Database connection refused", status: 500 };
+                }
+            }
+
+            document.getElementById('rawHttpCode').textContent = 'HTTP ' + status;
+            document.getElementById('healedHttpCode').textContent = 'HTTP ' + status;
+
+            rawEl.classList.remove('flash-red', 'flash-green');
+            void rawEl.offsetWidth;
+            rawEl.classList.add('flash-red');
+            rawEl.textContent = JSON.stringify(data, null, 2);
+
+            if (status === 500) {
+                document.getElementById('diagStrategy').textContent = 'DIRECT CALL CRASHED — No Bridge Protection';
+                setDiagTag('crashed', 'CRASHED');
+                var repairList = document.getElementById('repairList');
+                repairList.textContent = '';
+                var msgs = [
+                    ['\u274C', 'Application crashed: unhandled HTTP 500 from upstream.'],
+                    ['\u26A0', 'No fallback route without Self-Healing Bridge.'],
+                    ['\u{1F4A1}', 'Try the same scenario via the Bridge button to see it fixed.']
+                ];
+                msgs.forEach(function(m) {
+                    var li = document.createElement('li');
+                    var icon = document.createElement('span');
+                    icon.className = 'repair-icon';
+                    icon.textContent = m[0];
+                    li.appendChild(icon);
+                    li.appendChild(document.createTextNode(' ' + m[1]));
+                    repairList.appendChild(li);
+                });
+                healedEl.textContent = '\u274C APP CRASHED\nCould not process corrupted/empty response.\nUser sees an error page!';
+                healedEl.classList.remove('flash-red');
+                void healedEl.offsetWidth;
+                healedEl.classList.add('flash-red');
+                showToast('Direct call CRASHED! No bridge.', 'error', '\u274C');
+            } else {
+                document.getElementById('diagStrategy').textContent = 'Direct Call Successful (No Protection Applied)';
+                setDiagTag('pass', 'UNPROTECTED');
+
+                var dataKeys = data.data ? Object.keys(data.data) : [];
+                var hasRenamed = dataKeys.some(function(k) { return ['full_name','mail_address','mobile_number','age_yrs'].includes(k); });
+
+                var repairList = document.getElementById('repairList');
+                repairList.textContent = '';
+
+                if (hasRenamed) {
+                    var msgs2 = [
+                        ['\u26A0', 'Schema mismatch! Fields renamed but NOT repaired.'],
+                        ['\u274C', 'Frontend code will crash on data.username (now full_name).'],
+                        ['\u{1F4A1}', 'Use the Self-Healing Bridge to auto-repair.']
+                    ];
+                    msgs2.forEach(function(m) {
+                        var li = document.createElement('li');
+                        var icon = document.createElement('span');
+                        icon.className = 'repair-icon';
+                        icon.textContent = m[0];
+                        li.appendChild(icon);
+                        li.appendChild(document.createTextNode(' ' + m[1]));
+                        repairList.appendChild(li);
+                    });
+                    healedEl.textContent = '\u26A0 VULNERABLE PASS-THROUGH\n\nBroken field names delivered directly:\n' + JSON.stringify(data.data, null, 2);
+                    showToast('Data delivered but field names BROKEN!', 'warning', '\u26A0');
+                } else {
+                    var li = document.createElement('li');
+                    var icon = document.createElement('span');
+                    icon.className = 'repair-icon';
+                    icon.textContent = '\u2705';
+                    li.appendChild(icon);
+                    li.appendChild(document.createTextNode(' Direct response OK. Unprotected against future changes.'));
+                    repairList.appendChild(li);
+                    healedEl.textContent = JSON.stringify(data.data, null, 2);
+                    showToast('Direct call succeeded (currently stable)', 'info', '\u2705');
+                }
+            }
+
+            btn.classList.remove('btn-loading');
+            refreshStatus();
+        }
+
+        // ========== SEND VIA BRIDGE ==========
+        document.getElementById('btnBridge').addEventListener('click', sendBridge);
+
+        async function sendBridge() {
+            pauseTemporarilyForManual(8000);
+            var btn = document.getElementById('btnBridge');
+            btn.classList.add('btn-loading');
+
+            var rawEl = document.getElementById('rawBody');
+            var healedEl = document.getElementById('healedBody');
+            rawEl.textContent = 'Intercepting upstream response...';
+            healedEl.textContent = 'Self-Healing Engine analyzing...';
+
+            var data = null;
+            try {
+                var res = await fetch('/api/bridge-request');
+                if (res.ok) data = await res.json();
+            } catch (err) {
+                localChaosState.total_requests++;
+                var mode = localChaosState.mode;
+                if (mode === 'server_outage') {
+                    localChaosState.healed_requests++;
+                    recordLocalLog("ENDPOINT_FAILOVER", "Primary Server 500 caught. Rerouted to backup.", "HEALED");
+                    data = { bridge_status: "HEALED", original_status: 500, applied_strategy: "Automatic Endpoint Failover to Backup Node", latency_ms: 18.4, raw_unstable_payload: { error: "Internal Server Error", status: 500 }, healed_payload: { username: "alex_dev (Backup)", email: "alex@backup-server.org", phone: "555-0199", age: 21 }, repairs: ["Intercepted 500 Error", "Switched to /api/backup-v2"] };
+                } else if (mode === 'renamed_keys') {
+                    localChaosState.healed_requests++;
+                    var raw = { full_name: "alex_dev", mail_address: "alex@example.com", mobile_number: "555-0199", age_yrs: "21" };
+                    var result = virtualHealPayload(raw);
+                    recordLocalLog("SCHEMA_AUTO_HEALED", "Repaired " + result.repairs.length + " breaking changes.", "HEALED");
+                    data = { bridge_status: "HEALED", original_status: 200, applied_strategy: "Dynamic Schema Mapping & Type Normalization", latency_ms: 14.2, raw_unstable_payload: raw, healed_payload: result.healed, repairs: result.repairs };
+                } else if (mode === 'type_mismatch') {
+                    localChaosState.healed_requests++;
+                    var raw2 = { username: "alex_dev", email: "alex@example.com", phone: "555-0199", age: "21" };
+                    var result2 = virtualHealPayload(raw2);
+                    recordLocalLog("TYPE_NORMALIZED", "Sanitized corrupted data types.", "HEALED");
+                    data = { bridge_status: "HEALED", original_status: 200, applied_strategy: "Dynamic Type Sanitization", latency_ms: 9.8, raw_unstable_payload: raw2, healed_payload: result2.healed, repairs: result2.repairs };
+                } else {
+                    data = { bridge_status: "PASS_THROUGH", original_status: 200, applied_strategy: "No anomaly detected. Clean pass-through.", latency_ms: 4.1, raw_unstable_payload: { username: "alex_dev", email: "alex@example.com", phone: "555-0199", age: 21 }, healed_payload: { username: "alex_dev", email: "alex@example.com", phone: "555-0199", age: 21 }, repairs: [] };
+                }
+            }
+
+            applyHealingToUI(data);
+            if (data.bridge_status === 'HEALED') {
+                showToast('Anomaly detected and HEALED!', 'success', '\u2705');
+            } else {
+                showToast('Clean response — no healing needed', 'info', '\u2705');
+            }
+
+            btn.classList.remove('btn-loading');
+            refreshStatus();
+        }
+
+        // ========== HELPERS ==========
+        function setDiagTag(type, text) {
+            var tag = document.getElementById('diagTag');
+            tag.className = 'status-tag';
+            void tag.offsetWidth;
+            var classMap = { healed: 'tag-healed', crashed: 'tag-crashed', pass: 'tag-pass', ready: 'tag-ready' };
+            tag.classList.add(classMap[type] || 'tag-ready');
+            tag.textContent = text;
+        }
+
+        function getLogTypeClass(type) {
+            if (type.indexOf('SCHEMA') >= 0 || type.indexOf('AUTO') >= 0) return 'type-schema';
+            if (type.indexOf('FAILOVER') >= 0 || type.indexOf('ENDPOINT') >= 0) return 'type-failover';
+            if (type.indexOf('CHAOS') >= 0) return 'type-chaos';
+            if (type.indexOf('FAILED') >= 0 || type.indexOf('DIRECT') >= 0) return 'type-failed';
+            if (type.indexOf('PIPELINE') >= 0) return 'type-pipeline';
+            return 'type-system';
+        }
+
+        function getStatusDotClass(status) {
+            if (status === 'HEALED') return 'dot-healed';
+            if (status === 'FAILED') return 'dot-failed';
+            if (status === 'FAILOVER') return 'dot-failover';
+            return 'dot-system';
+        }
+
+        // ========== REFRESH STATUS ==========
+        async function refreshStatus() {
+            try {
+                var res = await fetch('/api/chaos-status');
+                if (res.ok) {
+                    var data = await res.json();
+                    backendOnline = true;
+                    updateMetricsDisplay(data.chaos_state);
+                    updateAuditTable(data.audit_logs);
+                    return;
+                }
+            } catch (err) {
+                backendOnline = false;
+            }
+            updateMetricsDisplay(localChaosState);
+            updateAuditTable(localAuditLogs);
+        }
+
+        // ========== INIT ==========
+        startAutopilot();
+        autopilotTick();
+        refreshStatus();
+        updatePipelineUI(localPipelineState);
+
+        // Pipeline refresh every 1.5s
+        setInterval(fetchPipelineStatus, 1500);
+
+        // ========== PRESENTATION MODE ENGINE ==========
+        var PRES_STEPS = [
+            {
+                title: "Self-Healing Dynamic API Bridge",
+                desc: "This system is an <strong>intelligent middleware</strong> that sits between your application and backend APIs. When APIs break (fields renamed, servers crash, data types change), this bridge <strong>automatically detects and fixes the problem</strong> without manual intervention.",
+                target: '.header',
+                action: null
+            },
+            {
+                title: "Data Pipeline Topology",
+                desc: "The <strong>pipeline visualization</strong> shows data flowing through 12 processing nodes in real-time. If a node fails, the system <strong>blocks the primary pipeline</strong> and reroutes all traffic through the failover pipeline while repairs are underway.",
+                target: '#pipelineSection',
+                action: null
+            },
+            {
+                title: "Pipeline Failure & Automatic Failover",
+                desc: "Watch the pipeline failover in action. I'm injecting a fault into the primary pipeline. Notice how the <strong>failed node turns red</strong>, downstream nodes are <strong>blocked</strong>, and traffic is <strong>instantly rerouted</strong> to the failover pipeline.",
+                target: '#pipelineSection',
+                action: async function() {
+                    document.getElementById('pipeFailBtn').click();
+                    await sleep(800);
+                }
+            },
+            {
+                title: "Health Metrics Dashboard",
+                desc: "These four metrics track everything in real-time: <strong>Total API Requests</strong> processed, <strong>Auto-Healed</strong> anomalies fixed silently, <strong>Unprotected Failures</strong> from direct calls, and <strong>Healing Efficiency</strong> percentage.",
+                target: '.metrics-strip',
+                action: null
+            },
+            {
+                title: "Chaos Engineering Controls",
+                desc: "This panel simulates real-world API failures. In production, APIs break all the time when backend developers rename fields, change data types, or when servers crash. We can simulate these scenarios to test the healing engine.",
+                target: '.control-panel',
+                action: null
+            },
+            {
+                title: "Scenario: Rename Schema Fields",
+                desc: "Activating <strong>'Rename Schema Fields'</strong> mode. This simulates renaming <code>username</code> to <code>full_name</code>, <code>email</code> to <code>mail_address</code>, etc. Without the bridge, the frontend app crashes.",
+                target: '.chaos-grid',
+                action: async function() {
+                    document.getElementById('chaosBtnRename').click();
+                    await sleep(600);
+                }
+            },
+            {
+                title: "Direct Call WITHOUT Bridge (Crashes)",
+                desc: "Sending a <strong>direct API call without the bridge</strong>. The raw response has renamed fields. Any frontend code expecting <code>data.username</code> gets <code>undefined</code> and <strong>crashes</strong>.",
+                target: '.diff-grid',
+                action: async function() {
+                    await sendDirect();
+                    await sleep(800);
+                }
+            },
+            {
+                title: "Self-Healing Bridge FIXES It!",
+                desc: "Now the <strong>Self-Healing Bridge</strong> intercepts the same broken response, auto-maps all renamed fields back to canonical names, and delivers a <strong>clean, correct response</strong>. Compare raw (broken) vs healed (fixed)!",
+                target: '.diff-grid',
+                action: async function() {
+                    await sendBridge();
+                    await sleep(800);
+                }
+            },
+            {
+                title: "Server Outage (HTTP 500 Crash)",
+                desc: "Simulating the worst case: <strong>primary API server crashes</strong> with HTTP 500. The bridge <strong>automatically fails over to a backup node</strong> and still delivers clean data.",
+                target: '.diff-grid',
+                action: async function() {
+                    document.getElementById('chaosBtnOutage').click();
+                    await sleep(600);
+                    await sendBridge();
+                    await sleep(800);
+                }
+            },
+            {
+                title: "Audit Feed & Backend Server Access",
+                desc: "Every action is logged in the <strong>Audit Feed</strong>. Use the <strong>'Access Server'</strong> button in the header to view all API endpoints, run curl commands, and see live server health. <br><br><strong>The Self-Healing API Bridge ensures zero downtime and 100% uptime.</strong>",
+                target: '.audit-section',
+                action: null
+            }
+        ];
+
+        var presCurrentStep = 0;
+        var presActive = false;
+
+        function sleep(ms) { return new Promise(function(resolve) { setTimeout(resolve, ms); }); }
+
+        document.getElementById('presStartBtn').addEventListener('click', startPresentation);
+
+        function startPresentation() {
+            presCurrentStep = 0;
+            presActive = true;
+            pauseAutopilot();
+
+            document.getElementById('chaosBtnNormal').click();
+
+            if (!document.getElementById('presOverlay')) {
+                var overlay = document.createElement('div');
+                overlay.id = 'presOverlay';
+                overlay.className = 'pres-overlay';
+
+                var backdrop = document.createElement('div');
+                backdrop.className = 'pres-backdrop';
+                overlay.appendChild(backdrop);
+
+                var spotlight = document.createElement('div');
+                spotlight.className = 'pres-spotlight';
+                spotlight.id = 'presSpotlight';
+                overlay.appendChild(spotlight);
+
+                var narration = document.createElement('div');
+                narration.className = 'pres-narration';
+                narration.id = 'presNarration';
+
+                var stepRow = document.createElement('div');
+                stepRow.className = 'pres-step-row';
+
+                var stepBadge = document.createElement('div');
+                stepBadge.className = 'pres-step-badge';
+                var stepNum = document.createElement('span');
+                stepNum.className = 'pres-step-num';
+                stepNum.id = 'presStepNum';
+                stepNum.textContent = '1';
+                stepBadge.appendChild(stepNum);
+                var stepLabel = document.createElement('span');
+                stepLabel.id = 'presStepLabel';
+                stepLabel.textContent = 'Step 1 of ' + PRES_STEPS.length;
+                stepBadge.appendChild(stepLabel);
+                stepRow.appendChild(stepBadge);
+
+                var progress = document.createElement('div');
+                progress.className = 'pres-progress';
+                var progressFill = document.createElement('div');
+                progressFill.className = 'pres-progress-fill';
+                progressFill.id = 'presProgressFill';
+                progressFill.style.width = '0%';
+                progress.appendChild(progressFill);
+                stepRow.appendChild(progress);
+
+                narration.appendChild(stepRow);
+
+                var title = document.createElement('div');
+                title.className = 'pres-title';
+                title.id = 'presTitle';
+                narration.appendChild(title);
+
+                var desc = document.createElement('div');
+                desc.className = 'pres-desc';
+                desc.id = 'presDesc';
+                narration.appendChild(desc);
+
+                var controls = document.createElement('div');
+                controls.className = 'pres-controls';
+
+                var exitBtn = document.createElement('button');
+                exitBtn.className = 'pres-ctrl-btn pres-ctrl-exit';
+                exitBtn.textContent = 'Exit Tour';
+                exitBtn.addEventListener('click', endPresentation);
+                controls.appendChild(exitBtn);
+
+                var nextBtn = document.createElement('button');
+                nextBtn.className = 'pres-ctrl-btn pres-ctrl-next';
+                nextBtn.id = 'presNextBtn';
+                nextBtn.textContent = 'Next Step \u2192';
+                nextBtn.addEventListener('click', nextPresStep);
+                controls.appendChild(nextBtn);
+
+                narration.appendChild(controls);
+                overlay.appendChild(narration);
+                document.body.appendChild(overlay);
+            }
+
+            setTimeout(function() {
+                document.getElementById('presOverlay').classList.add('active');
+                renderPresStep();
+            }, 100);
+        }
+
+        function renderPresStep() {
+            var step = PRES_STEPS[presCurrentStep];
+            var total = PRES_STEPS.length;
+
+            document.getElementById('presStepNum').textContent = presCurrentStep + 1;
+            document.getElementById('presStepLabel').textContent = 'Step ' + (presCurrentStep + 1) + ' of ' + total;
+            document.getElementById('presProgressFill').style.width = (((presCurrentStep + 1) / total) * 100) + '%';
+            document.getElementById('presTitle').textContent = step.title;
+            // TODO(security): step.desc contains only hardcoded trusted HTML from PRES_STEPS, not user input
+            document.getElementById('presDesc').innerHTML = step.desc;
+
+            var nextBtn = document.getElementById('presNextBtn');
+            if (presCurrentStep === total - 1) {
+                nextBtn.textContent = 'Finish \u2714';
+            } else {
+                nextBtn.textContent = 'Next Step \u2192';
+            }
+
+            var targetEl = document.querySelector(step.target);
+            if (targetEl) {
+                targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setTimeout(function() {
+                    var rect = targetEl.getBoundingClientRect();
+                    var spot = document.getElementById('presSpotlight');
+                    var pad = 10;
+                    spot.style.top = (rect.top - pad) + 'px';
+                    spot.style.left = (rect.left - pad) + 'px';
+                    spot.style.width = (rect.width + pad * 2) + 'px';
+                    spot.style.height = (rect.height + pad * 2) + 'px';
+                }, 400);
+            }
+        }
+
+        async function nextPresStep() {
+            var step = PRES_STEPS[presCurrentStep];
+            var nextBtn = document.getElementById('presNextBtn');
+
+            if (step.action) {
+                nextBtn.textContent = 'Running...';
+                nextBtn.disabled = true;
+                await step.action();
+                nextBtn.disabled = false;
+            }
+
+            presCurrentStep++;
+
+            if (presCurrentStep >= PRES_STEPS.length) {
+                endPresentation();
+                return;
+            }
+
+            var narration = document.getElementById('presNarration');
+            narration.style.animation = 'none';
+            void narration.offsetWidth;
+            narration.style.animation = 'narrateIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)';
+
+            renderPresStep();
+        }
+
+        function endPresentation() {
+            presActive = false;
+            var overlay = document.getElementById('presOverlay');
+            if (overlay) {
+                overlay.classList.remove('active');
+                setTimeout(function() { overlay.remove(); }, 400);
+            }
+            showToast('Presentation ended. Resuming autopilot.', 'info', '\u{1F3AC}');
+            setTimeout(function() {
+                startAutopilot();
+            }, 600);
+        }
+    </script>
+</body>
+</html>
