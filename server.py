@@ -20,8 +20,8 @@ import os
 from datetime import datetime, timezone, timedelta
 
 # --- Configuration ---
-PORT = 8000
-HOST = "127.0.0.1"  # TODO(security): Bind to localhost only for safe testing
+PORT = int(os.environ.get("PORT", 8000))
+HOST = os.environ.get("HOST", "0.0.0.0")
 MAX_AUDIT_LOGS = 200
 MAX_PIPELINE_NODES = 12
 RATE_LIMIT_WINDOW = 60  # seconds
@@ -912,7 +912,8 @@ if __name__ == "__main__":
         {"host": HOST, "port": PORT},
     )
 
-    with socketserver.ThreadingTCPServer(("0.0.0.0", int(os.environ.get("PORT",PORT)))), SelfHealingRequestHandler) as httpd:
+    server_port = int(os.environ.get("PORT", PORT))
+    with socketserver.ThreadingTCPServer((HOST, server_port), SelfHealingRequestHandler) as httpd:
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
